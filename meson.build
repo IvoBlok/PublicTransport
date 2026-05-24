@@ -1,6 +1,6 @@
 project('PTSimulation', 'cpp',
     version : '0.1.0',
-    default_options : ['cpp_std=c++20'])
+    default_options : ['cpp_std=c++20', 'buildtype=debug', 'b_ndebug=if-release'])
 
 vulkan = dependency('vulkan')
 glm = dependency('glm')

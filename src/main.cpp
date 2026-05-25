@@ -2,15 +2,13 @@
 #include <renderer/renderer.hpp>
 
 int main() {
-    RenderEngine renderer;
+    renderer::RenderEngine renderer;
 
-    try {
-        renderer.run();
-    } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
-        return EXIT_FAILURE;
+    renderer.initialize();
+    
+    while(!renderer.shouldWindowClose()) {
+        renderer.handleFrame();
     }
-
-    return EXIT_SUCCESS;
+    renderer.cleanup();
 }
 

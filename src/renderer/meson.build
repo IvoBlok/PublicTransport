@@ -37,7 +37,7 @@ renderer_lib = static_library('renderer',
     renderer_src,
     include_directories : renderer_inc,
     dependencies : [
-        common_types_dep,
+        translation_dep,
         vulkan,
         glfw
     ]
@@ -46,5 +46,5 @@ renderer_lib = static_library('renderer',
 renderer_dep = declare_dependency(
     include_directories : renderer_inc,
     link_with : renderer_lib,
-    dependencies : [common_types_dep]
+    dependencies : [translation_dep]
 )

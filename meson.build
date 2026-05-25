@@ -6,10 +6,10 @@ project('PTSimulation', 'cpp',
 # hipcc = find_program('/opt/rocm-7.2.3/bin/hipcc', required: true)
 # rocm_include = include_directories('/opt/rocm-7.2.3/include')
 
-subdir('src/common_types')
 subdir('src/compute')
+subdir('src/translation')
 subdir('src/renderer') 
 
 executable('PTSimulation', 'src/main.cpp', 
-    dependencies: [common_types_dep, compute_dep, renderer_dep],
+    dependencies: [compute_dep, translation_dep, renderer_dep],
     install: false)

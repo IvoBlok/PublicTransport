@@ -2,11 +2,11 @@
 glm = dependency('glm')
 eigen = dependency('eigen3')
 
-common_types_inc = include_directories('include')
+translation_inc = include_directories('include')
 
-common_types_dep = declare_dependency(
-    include_directories : common_types_inc,
-    dependencies : [glm, eigen]
+translation_dep = declare_dependency(
+    include_directories : translation_inc,
+    dependencies : [compute_dep, glm, eigen]
 )
 
 

@@ -1,8 +1,7 @@
 #pragma once
 
-#include "ComputeWrapperBase.hpp"
-#include <renderer/renderer.hpp>
-
+#include <renderer/coreTypes.hpp>
+#include <translation/ComputeWrapperBase.hpp>
 #include <compute/example.hpp>
 
 /*
@@ -11,7 +10,7 @@ In a proper example, this would probably be split into header and src file
 */
 class ExampleTranslation : public ComputeWrapperBase {
 public:
-    ExampleTranslation(renderer::RenderEngine& renderer) : renderer(renderer) {
+    ExampleTranslation(renderer::VulkanContext& renderContext) : renderContext(renderContext) {
         exampleSim = compute::ExampleSimulation();
         cachedParams = exampleSim.getParameters();
     }
@@ -56,9 +55,8 @@ private:
     compute::ExampleSimulation exampleSim;
     compute::ExampleSimulation::State cachedState;
     compute::ExampleSimulation::Parameters cachedParams;
-    bool dirtyParams;
 
-    renderer::RenderEngine& renderer;
+    renderer::VulkanContext& renderContext;
 
     std::vector<renderer::Line> renderLines;
 
@@ -67,6 +65,6 @@ private:
 
         renderLines.clear();
         for (auto vel : cachedState.velocity)
-            renderLines.push_back(renderer::Line());
+            renderLines.push_back(renderer::Line(renderContext));
     }
 };

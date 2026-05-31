@@ -30,7 +30,8 @@ renderer_inc = include_directories('include')
 
 renderer_src = [
     'src/coreTypes.cpp',
-    'src/renderer.cpp'
+    'src/renderer.cpp',
+    'src/objectTypes/line.cpp'
 ]
 
 renderer_lib = static_library('renderer',

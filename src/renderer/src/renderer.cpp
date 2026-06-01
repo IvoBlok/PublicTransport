@@ -121,6 +121,7 @@ void RenderEngine::VulkanInternals::createLogicalDevice() {
     deviceFeatures.samplerAnisotropy = VK_TRUE;
     deviceFeatures.wideLines = VK_TRUE;
     deviceFeatures.independentBlend = VK_TRUE;
+    deviceFeatures.fillModeNonSolid = VK_TRUE;
 
     // Create the logical device
     VkDeviceCreateInfo createInfo{};
@@ -476,7 +477,7 @@ void RenderEngine::VulkanInternals::createPipelines() {
     rasterizer.depthClampEnable = VK_FALSE;
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
 
-    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizer.polygonMode = VK_POLYGON_MODE_LINE;
     rasterizer.lineWidth = 1.0f;
     rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
@@ -712,15 +713,14 @@ void RenderEngine::VulkanInternals::createSyncObjects() {
     }
 }
 
-void RenderEngine::VulkanInternals::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+void RenderEngine::VulkanInternals::recordCommandBuffer(std::vector<std::unique_ptr<ComputeWrapperBase>>& wrappers, VkCommandBuffer commandBuffer, uint32_t imageIndex) {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     beginInfo.pInheritanceInfo = nullptr; // Optional
 
-    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
         throw std::runtime_error("failed to begin recording command buffer!");
-    }
 
     std::array<VkClearValue, 1> clearValues{};
     clearValues[0].color = { {CLEAR_COLOR.x, CLEAR_COLOR.y, CLEAR_COLOR.z, 1.f} };  // swapchain
@@ -757,6 +757,12 @@ void RenderEngine::VulkanInternals::recordCommandBuffer(VkCommandBuffer commandB
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &UBODescriptorSets[currentFrame], 0, nullptr);
 
     // TODO
+    for (auto& wrapper : wrappers) {
+        const std::vector<Line>& lines = wrapper->getLines();
+        for (const auto& line : lines) {
+            line.render(commandBuffer);
+        }
+    }
     /*
     for (auto& object : objects)
     {
@@ -997,6 +1003,7 @@ void RenderEngine::initialize() {
     internals->initVulkan();
 }
 
+// TODO move handleFrame to vulkanInternals?
 void RenderEngine::handleFrame() {
     glfwPollEvents();
 
@@ -1020,7 +1027,7 @@ void RenderEngine::handleFrame() {
 
     // Update the uniform buffers
     internals->updateUniformBuffer(internals->currentFrame);
-    internals->recordCommandBuffer(internals->commandBuffers[internals->currentFrame], imageIndex);
+    internals->recordCommandBuffer(wrappers, internals->commandBuffers[internals->currentFrame], imageIndex);
 
     // Submit the command buffer.. i.e. actually do the graphics computations
     VkSubmitInfo submitInfo{};
@@ -1062,6 +1069,8 @@ void RenderEngine::handleFrame() {
         throw std::runtime_error("failed to present swap chain image!");
     }
 
+    internals->handleUserInput();
+
     internals->currentFrame = (internals->currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
@@ -1070,6 +1079,9 @@ bool RenderEngine::shouldWindowClose() {
 }
 
 void RenderEngine::cleanup() {
+	vkDeviceWaitIdle(internals->context.device);
+
+    wrappers.clear();
     internals->cleanup();
 }
 

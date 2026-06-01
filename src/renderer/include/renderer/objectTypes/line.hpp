@@ -13,7 +13,14 @@ namespace renderer {
         Line(VulkanContext& renderContext);
         ~Line();
         
-        void render(VkCommandBuffer commandBuffer);
+		// disable copying to avoid vulkan buffers getting freed twice
+		Line(const Line&) = delete;
+		Line& operator=(const Line&) = delete;
+
+		Line(Line&& other) noexcept;
+		Line& operator=(Line&& other) noexcept;
+
+        void render(VkCommandBuffer commandBuffer) const;
         void createVertexBuffer();
         void destroy();
 

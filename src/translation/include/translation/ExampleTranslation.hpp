@@ -51,6 +51,11 @@ public:
 
     const std::vector<renderer::Line>& getLines() const override { return renderLines; }
     
+    void testRunSimulation() {
+        exampleSim.setParameters(cachedParams);
+        exampleSim.run(compute::ExampleSimulation::RunParameters{.numSteps = 100}, [this](const compute::ExampleSimulation::State& state) { this->onComputeStateUpdate(state); });
+    }
+
 private:
     compute::ExampleSimulation exampleSim;
     compute::ExampleSimulation::State cachedState;

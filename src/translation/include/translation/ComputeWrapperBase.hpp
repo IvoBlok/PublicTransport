@@ -1,6 +1,6 @@
 #pragma once
 
-#include <renderer/linePrimitive.hpp>
+#include <renderer/objectTypes/line.hpp>
 
 #include <vector>
 
@@ -23,4 +23,4 @@ public:
     // virtual const std::vector<renderer::Spline>& getSplines() const = 0;
     // virtual const std::vector<renderer::Cube>& getCubes() const = 0;
     // etc...
-}
+};

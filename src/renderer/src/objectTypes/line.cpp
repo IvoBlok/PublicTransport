@@ -6,13 +6,39 @@ namespace renderer
 {
     Line::Line(VulkanContext& renderContext) : renderContext(renderContext) {
         vertices = std::vector<RendererVertex>();
-        vertices.push_back(RendererVertex{.pos = glm::ballRand(1.0f)});
+        for (int i = 0; i < 10; i++)
+            vertices.push_back(RendererVertex{.pos = glm::ballRand(1.0f)});
 
         createVertexBuffer();
     }
 
     Line::~Line() {
         destroy();
+    }
+
+    Line::Line(Line&& other) noexcept : 
+        renderContext(other.renderContext),
+        vertices(std::move(other.vertices)),
+        vertexBuffer(other.vertexBuffer),
+        vertexBufferMemory(other.vertexBufferMemory)
+    {
+        other.vertexBuffer = VK_NULL_HANDLE;
+        other.vertexBufferMemory = VK_NULL_HANDLE;
+    }
+
+    Line& Line::operator=(Line&& other) noexcept {
+        if (this != &other) {
+            vkDeviceWaitIdle(renderContext.device);
+            destroy();
+
+            vertices = std::move(other.vertices);
+            vertexBuffer = other.vertexBuffer;
+            vertexBufferMemory = other.vertexBufferMemory;
+
+            other.vertexBuffer = VK_NULL_HANDLE;
+            other.vertexBufferMemory = VK_NULL_HANDLE;
+        }
+        return *this;
     }
 
     void Line::createVertexBuffer() {
@@ -46,7 +72,7 @@ namespace renderer
         vertices.clear();
     }
 
-    void Line::render(VkCommandBuffer commandBuffer) {
+    void Line::render(VkCommandBuffer commandBuffer) const {
         VkBuffer vertexBuffers[] = {vertexBuffer};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <renderer/coreTypes.hpp>
+#include <translation/ComputeWrapperBase.hpp>
 
 #include <memory>
 #include <map>
@@ -24,6 +25,8 @@ namespace renderer {
     
         bool shouldWindowClose();
         renderer::VulkanContext& getContext() const;
+
+        std::vector<std::unique_ptr<ComputeWrapperBase>> wrappers;
 
     private:
         struct VulkanInternals;
@@ -121,7 +124,7 @@ namespace renderer {
         void createDescriptorSets();
         void createCommandBuffers();
         void createSyncObjects();
-        void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+        void recordCommandBuffer(std::vector<std::unique_ptr<ComputeWrapperBase>>& wrappers, VkCommandBuffer commandBuffer, uint32_t imageIndex);
         VkShaderModule createShaderModule(const std::vector<char>& code);
         VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
         VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);

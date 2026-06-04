@@ -5,11 +5,8 @@
 namespace renderer
 {
     Line::Line(VulkanContext& renderContext) : renderContext(renderContext) {
-        vertices = std::vector<RendererVertex>();
-        for (int i = 0; i < 10; i++)
-            vertices.push_back(RendererVertex{.pos = glm::ballRand(1.0f)});
-
-        createVertexBuffer();
+        vertexBuffer = VK_NULL_HANDLE;
+        vertexBufferMemory = VK_NULL_HANDLE;
     }
 
     Line::~Line() {
@@ -20,10 +17,12 @@ namespace renderer
         renderContext(other.renderContext),
         vertices(std::move(other.vertices)),
         vertexBuffer(other.vertexBuffer),
-        vertexBufferMemory(other.vertexBufferMemory)
+        vertexBufferMemory(other.vertexBufferMemory),
+        vertexCount(other.vertexCount)
     {
         other.vertexBuffer = VK_NULL_HANDLE;
         other.vertexBufferMemory = VK_NULL_HANDLE;
+        other.vertexCount = 0;
     }
 
     Line& Line::operator=(Line&& other) noexcept {
@@ -34,15 +33,34 @@ namespace renderer
             vertices = std::move(other.vertices);
             vertexBuffer = other.vertexBuffer;
             vertexBufferMemory = other.vertexBufferMemory;
+            vertexCount = other.vertexCount;
 
             other.vertexBuffer = VK_NULL_HANDLE;
             other.vertexBufferMemory = VK_NULL_HANDLE;
+            other.vertexCount = 0;
         }
+        
         return *this;
     }
 
-    void Line::createVertexBuffer() {
-        VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+    bool Line::needsUpdate() const {
+        return vertices.hasNewData();
+    }
+
+    void Line::updateGPU() {
+        if (!needsUpdate()) return;
+
+        const auto& front = vertices.swapAndGetFront();
+        createRenderBuffers(front);
+    }
+
+    void Line::createRenderBuffers(const std::vector<RendererVertex>& vertices) {
+        destroy();
+
+        if (vertices.empty()) return;
+
+        vertexCount = vertices.size();
+        VkDeviceSize bufferSize = sizeof(vertices[0]) * vertexCount;
 
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
@@ -69,14 +87,16 @@ namespace renderer
             vkFreeMemory(renderContext.device, vertexBufferMemory, nullptr);
             vertexBufferMemory = VK_NULL_HANDLE;
         }
-        vertices.clear();
+        vertexCount = 0;
     }
 
     void Line::render(VkCommandBuffer commandBuffer) const {
+        if (vertexBuffer == VK_NULL_HANDLE || vertexCount == 0) return;
+        
         VkBuffer vertexBuffers[] = {vertexBuffer};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-        vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+        vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertexCount), 1, 0, 0);
     }
 } // namespace renderer

@@ -61,7 +61,6 @@ namespace renderer {
         alignas(16) glm::mat4 proj;
     };
 
-    // !TEMP
     struct RendererVertex {
         glm::vec3 pos;
         glm::vec3 color;

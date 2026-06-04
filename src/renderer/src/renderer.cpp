@@ -1005,6 +1005,14 @@ void RenderEngine::initialize() {
 
 // TODO move handleFrame to vulkanInternals?
 void RenderEngine::handleFrame() {
+    // update objects GPU buffers, if applicable
+    for (auto& wrapper : wrappers) {
+        auto& lines = wrapper->getLines();
+
+        for (auto& line : lines)
+            line.updateGPU();
+    }
+
     glfwPollEvents();
 
     // Wait for the previous frame to finish rendering

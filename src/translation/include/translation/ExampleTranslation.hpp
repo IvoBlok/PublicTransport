@@ -49,7 +49,7 @@ public:
         */
     }
 
-    const std::vector<renderer::Line>& getLines() const override { return renderLines; }
+    std::vector<renderer::Line>& getLines() override { return renderLines; }
     
     void testRunSimulation() {
         exampleSim.setParameters(cachedParams);
@@ -63,13 +63,21 @@ private:
 
     renderer::VulkanContext& renderContext;
 
+    // TODO: renderer:Line already needs to be reworked to LineSet, but because that's not yet the case we have another issue here; we could be pushing/popping elements to this while the renderer is reading them. If we use LineSet, where the full vector is double-buffered, this issue is resolved
     std::vector<renderer::Line> renderLines;
 
     void onComputeStateUpdate(const compute::ExampleSimulation::State& state) {
         cachedState = state;
 
         renderLines.clear();
-        for (auto vel : cachedState.velocity)
-            renderLines.push_back(renderer::Line(renderContext));
+        for (int i = 0; i < cachedState.velocity.size(); i++) {
+            if (i >= renderLines.size()) renderLines.push_back(renderer::Line(renderContext));
+
+            auto& vertices = renderLines[i].startWrite();
+            for (size_t j = 0; j < 10; j++)
+                vertices.push_back(renderer::RendererVertex{.pos = glm::ballRand(1.0f)});
+            
+            renderLines[i].endWrite();
+        }
     }
 };

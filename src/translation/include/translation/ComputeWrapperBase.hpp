@@ -18,9 +18,9 @@ public:
 
     virtual void renderGUI() = 0;
 
-    virtual const std::vector<renderer::Line>& getLines() const = 0;
-    // virtual const std::vector<renderer::Arrows>& getArrows() const = 0;
-    // virtual const std::vector<renderer::Spline>& getSplines() const = 0;
-    // virtual const std::vector<renderer::Cube>& getCubes() const = 0;
+    virtual std::vector<renderer::Line>& getLines() = 0;
+    // virtual std::vector<renderer::Arrows>& getArrows() const = 0;
+    // virtual std::vector<renderer::Spline>& getSplines() const = 0;
+    // virtual std::vector<renderer::Cube>& getCubes() const = 0;
     // etc...
 };

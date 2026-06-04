@@ -68,9 +68,9 @@ private:
     void onComputeStateUpdate(const compute::ExampleSimulation::State& state) {
         cachedState = state;
 
-        for (int i = 0; i < 1; i++) {
+        for (int i = 0; i < cachedState.velocity.size(); i++) {
             lineSet.beginStrip();
-            for (size_t j = 0; j < 10; j++) lineSet.addPoint(glm::ballRand(1.0f), glm::ballRand(0.5f) + glm::vec3{0.5f});
+            for (size_t j = 0; j < 10000; j++) lineSet.addPoint(glm::ballRand(1.0f), glm::ballRand(0.5f) + glm::vec3{0.5f});
             lineSet.endStrip();
         }
     }

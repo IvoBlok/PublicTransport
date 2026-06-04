@@ -448,8 +448,8 @@ void RenderEngine::VulkanInternals::createPipelines() {
 
     // TODO: define the data going to the primary shader
     // ----
-    auto bindingDescription = RendererVertex::getBindingDescription();
-    auto attributeDescriptions = RendererVertex::getAttributeDescriptions();
+    auto bindingDescription = LineSetVertex::getBindingDescription();
+    auto attributeDescriptions = LineSetVertex::getAttributeDescriptions();
 
     vertexInputInfo.vertexBindingDescriptionCount = 1;
     vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
@@ -460,7 +460,7 @@ void RenderEngine::VulkanInternals::createPipelines() {
     // Declare the way and what type of primitives are made from the vertex data
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
     inputAssembly.primitiveRestartEnable = VK_FALSE;
     // ----
     
@@ -758,10 +758,8 @@ void RenderEngine::VulkanInternals::recordCommandBuffer(std::vector<std::unique_
 
     // TODO
     for (auto& wrapper : wrappers) {
-        const std::vector<Line>& lines = wrapper->getLines();
-        for (const auto& line : lines) {
-            line.render(commandBuffer);
-        }
+        LineSet& lines = wrapper->getLines();
+        lines.render(commandBuffer);
     }
     /*
     for (auto& object : objects)
@@ -1008,9 +1006,7 @@ void RenderEngine::handleFrame() {
     // update objects GPU buffers, if applicable
     for (auto& wrapper : wrappers) {
         auto& lines = wrapper->getLines();
-
-        for (auto& line : lines)
-            line.updateGPU();
+        lines.updateGPU();
     }
 
     glfwPollEvents();

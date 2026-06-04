@@ -4,16 +4,50 @@
 
 namespace renderer
 {
-    Line::Line(VulkanContext& renderContext) : renderContext(renderContext) {
+    VkVertexInputBindingDescription LineSetVertex::getBindingDescription() {
+        VkVertexInputBindingDescription bindingDescription{};
+        bindingDescription.binding = 0;
+        bindingDescription.stride = sizeof(LineSetVertex);
+        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        return bindingDescription;
+    }
+
+    std::array<VkVertexInputAttributeDescription, 4> LineSetVertex::getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions{};
+
+        attributeDescriptions[0].binding = 0;
+        attributeDescriptions[0].location = 0;
+        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[0].offset = offsetof(LineSetVertex, pos);
+
+        attributeDescriptions[1].binding = 0;
+        attributeDescriptions[1].location = 1;
+        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[1].offset = offsetof(LineSetVertex, color);
+
+        attributeDescriptions[2].binding = 0;
+        attributeDescriptions[2].location = 2;
+        attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[2].offset = offsetof(LineSetVertex, normal);
+
+        attributeDescriptions[3].binding = 0;
+        attributeDescriptions[3].location = 3;
+        attributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[3].offset = offsetof(LineSetVertex, texCoord);
+
+        return attributeDescriptions;
+    }
+
+    LineSet::LineSet(VulkanContext& renderContext) : renderContext(renderContext) {
         vertexBuffer = VK_NULL_HANDLE;
         vertexBufferMemory = VK_NULL_HANDLE;
     }
 
-    Line::~Line() {
+    LineSet::~LineSet() {
         destroy();
     }
 
-    Line::Line(Line&& other) noexcept : 
+    LineSet::LineSet(LineSet&& other) noexcept : 
         renderContext(other.renderContext),
         vertices(std::move(other.vertices)),
         vertexBuffer(other.vertexBuffer),
@@ -25,7 +59,7 @@ namespace renderer
         other.vertexCount = 0;
     }
 
-    Line& Line::operator=(Line&& other) noexcept {
+    LineSet& LineSet::operator=(LineSet&& other) noexcept {
         if (this != &other) {
             vkDeviceWaitIdle(renderContext.device);
             destroy();
@@ -43,18 +77,18 @@ namespace renderer
         return *this;
     }
 
-    bool Line::needsUpdate() const {
+    bool LineSet::needsUpdate() const {
         return vertices.hasNewData();
     }
 
-    void Line::updateGPU() {
+    void LineSet::updateGPU() {
         if (!needsUpdate()) return;
 
         const auto& front = vertices.swapAndGetFront();
         createRenderBuffers(front);
     }
 
-    void Line::createRenderBuffers(const std::vector<RendererVertex>& vertices) {
+    void LineSet::createRenderBuffers(const std::vector<LineSetVertex>& vertices) {
         destroy();
 
         if (vertices.empty()) return;
@@ -78,7 +112,7 @@ namespace renderer
         vkFreeMemory(renderContext.device, stagingBufferMemory, nullptr);
     }
 
-    void Line::destroy() {
+    void LineSet::destroy() {
         if (vertexBuffer != VK_NULL_HANDLE) {
             vkDestroyBuffer(renderContext.device, vertexBuffer, nullptr);
             vertexBuffer = VK_NULL_HANDLE;
@@ -90,9 +124,9 @@ namespace renderer
         vertexCount = 0;
     }
 
-    void Line::render(VkCommandBuffer commandBuffer) const {
+    void LineSet::render(VkCommandBuffer commandBuffer) const {
         if (vertexBuffer == VK_NULL_HANDLE || vertexCount == 0) return;
-        
+
         VkBuffer vertexBuffers[] = {vertexBuffer};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);

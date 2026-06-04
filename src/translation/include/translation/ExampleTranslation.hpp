@@ -10,7 +10,7 @@ In a proper example, this would probably be split into header and src file
 */
 class ExampleTranslation : public ComputeWrapperBase {
 public:
-    ExampleTranslation(renderer::VulkanContext& renderContext) : renderContext(renderContext) {
+    ExampleTranslation(renderer::VulkanContext& renderContext) : renderContext(renderContext), lineSet(renderContext) {
         exampleSim = compute::ExampleSimulation();
         cachedParams = exampleSim.getParameters();
     }
@@ -49,7 +49,7 @@ public:
         */
     }
 
-    std::vector<renderer::Line>& getLines() override { return renderLines; }
+    renderer::LineSet& getLines() override { return lineSet; }
     
     void testRunSimulation() {
         exampleSim.setParameters(cachedParams);
@@ -63,21 +63,15 @@ private:
 
     renderer::VulkanContext& renderContext;
 
-    // TODO: renderer:Line already needs to be reworked to LineSet, but because that's not yet the case we have another issue here; we could be pushing/popping elements to this while the renderer is reading them. If we use LineSet, where the full vector is double-buffered, this issue is resolved
-    std::vector<renderer::Line> renderLines;
+    renderer::LineSet lineSet;
 
     void onComputeStateUpdate(const compute::ExampleSimulation::State& state) {
         cachedState = state;
 
-        renderLines.clear();
-        for (int i = 0; i < cachedState.velocity.size(); i++) {
-            if (i >= renderLines.size()) renderLines.push_back(renderer::Line(renderContext));
-
-            auto& vertices = renderLines[i].startWrite();
-            for (size_t j = 0; j < 10; j++)
-                vertices.push_back(renderer::RendererVertex{.pos = glm::ballRand(1.0f)});
-            
-            renderLines[i].endWrite();
+        for (int i = 0; i < 1; i++) {
+            lineSet.beginStrip();
+            for (size_t j = 0; j < 10; j++) lineSet.addPoint(glm::ballRand(1.0f), glm::ballRand(0.5f) + glm::vec3{0.5f});
+            lineSet.endStrip();
         }
     }
 };

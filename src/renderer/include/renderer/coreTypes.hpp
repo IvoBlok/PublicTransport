@@ -61,16 +61,6 @@ namespace renderer {
         alignas(16) glm::mat4 proj;
     };
 
-    struct RendererVertex {
-        glm::vec3 pos;
-        glm::vec3 color;
-        glm::vec3 normal;
-        glm::vec2 texCoord;
-
-        static VkVertexInputBindingDescription getBindingDescription();
-        static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
-    };
-
     // define useful functions for handling vulkan data types
     void createBuffer(VulkanContext& context, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
     void copyBuffer(VulkanContext& context, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);

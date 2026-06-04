@@ -1,5 +1,7 @@
 #include <renderer/renderer.hpp>
 
+#include <tracy/TracyVulkan.hpp>
+
 #include <fstream>
 #include <cstring>
 #include <iostream>
@@ -1081,6 +1083,8 @@ void RenderEngine::handleFrame() {
     internals->handleUserInput();
 
     internals->currentFrame = (internals->currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+    FrameMark;
 }
 
 bool RenderEngine::shouldWindowClose() {

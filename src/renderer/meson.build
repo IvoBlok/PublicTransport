@@ -21,10 +21,11 @@ foreach src : shader_sources
     )
 endforeach
 
-# handle dependencies
+# handle other dependencies
 vulkan = dependency('vulkan')
 glfw = dependency('glfw3')
 
+tracy = dependency('tracy', required: get_option('tracy_enable'), static: true)
 
 renderer_inc = include_directories('include')
 
@@ -40,12 +41,13 @@ renderer_lib = static_library('renderer',
     dependencies : [
         translation_dep,
         vulkan,
-        glfw
+        glfw,
+        tracy
     ]
 )
 
 renderer_dep = declare_dependency(
     include_directories : renderer_inc,
     link_with : renderer_lib,
-    dependencies : [translation_dep]
+    dependencies : [translation_dep, tracy]
 )

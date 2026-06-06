@@ -5,6 +5,14 @@ The idea is to try and reproduce the dutch rail network, simulate a given train 
  - Planning the fastest/best/easiest route from A to B
  - Add some form of 'user' dynamics, such that we might be able to measure stuff like how many people use which lines, what changes might be worth trying in the schedule, etc...
 
+# Running
+Build and run the main executable, with the interactive renderer/gui:
+```bash
+meson setup build
+meson compile -C build
+./build/PTSimulation
+```
+
 # Profiling
 
 I use tracy here, and installation is managed by meson. The Tracy Server can be built by running: 
@@ -16,12 +24,12 @@ cmake --build profiler/build --config Release --parallel
 
 The client, which also contains our actual Renderer, can be built for profiling with:
 ```bash
-meson setup build -Dtracy_enable=true
+meson setup build -Dtracy_enable=true -Dtracy:on_demand=true
 meson compile -C build
 ```
 
 Then start both the server and client, and select the running client from the server for live profiling:
 ```bash
 ./subprojects/tracy/profiler/build/tracy-profiler
-./build/PTSimulation
+sudo ./build/PTSimulation
 ```

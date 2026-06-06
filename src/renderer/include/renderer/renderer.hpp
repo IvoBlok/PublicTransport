@@ -3,6 +3,9 @@
 #include <renderer/coreTypes.hpp>
 #include <translation/ComputeWrapperBase.hpp>
 
+#include <tracy/Tracy.hpp>
+#include <tracy/TracyVulkan.hpp>
+
 #include <memory>
 #include <map>
 #include <unordered_map>

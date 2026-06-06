@@ -1,7 +1,5 @@
 #include <renderer/renderer.hpp>
 
-#include <tracy/TracyVulkan.hpp>
-
 #include <fstream>
 #include <cstring>
 #include <iostream>
@@ -16,6 +14,7 @@
 using namespace renderer;
 
 std::vector<char> readShaderFile(const std::string& relativePath) {
+    ZoneScoped;
     const std::vector<std::filesystem::path> searchPaths = {
         std::filesystem::current_path() / "build/src/renderer" / relativePath,
         std::filesystem::current_path() / "src/renderer" / relativePath
@@ -36,6 +35,7 @@ std::vector<char> readShaderFile(const std::string& relativePath) {
 }
 
 RenderEngine::VulkanInternals::VulkanInternals() {
+    ZoneScoped;
     cameraPosition = glm::vec3{ 0.f, -2.f, 0.f };
 	cameraFront = glm::vec3{ 0.f, 1.f, 0.f };
 	cameraRight = glm::vec3{ 1.f, 0.f, 0.f };
@@ -45,10 +45,12 @@ RenderEngine::VulkanInternals::VulkanInternals() {
 }
 
 bool RenderEngine::VulkanInternals::QueueFamilyIndices::isComplete() {
+    ZoneScoped;
     return graphicsFamily.has_value() && presentFamily.has_value();
 }
 
 void RenderEngine::VulkanInternals::initWindow() {
+    ZoneScoped;
     glfwInit();
 
     // Tell GLFW to not create a OpenGL context, since vulkan is used here
@@ -60,6 +62,7 @@ void RenderEngine::VulkanInternals::initWindow() {
 }
 
 void RenderEngine::VulkanInternals::initVulkan() {
+    ZoneScoped;
     createInstance();
     createSurface();
     pickPhysicalDevice();
@@ -79,6 +82,7 @@ void RenderEngine::VulkanInternals::initVulkan() {
 }
 
 void RenderEngine::VulkanInternals::pickPhysicalDevice() {
+    ZoneScoped;
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
@@ -102,6 +106,7 @@ void RenderEngine::VulkanInternals::pickPhysicalDevice() {
 }
 
 void RenderEngine::VulkanInternals::createLogicalDevice() {
+    ZoneScoped;
     QueueFamilyIndices indices = findQueueFamilies(context.physicalDevice);
 
     // Define the queues we want to create
@@ -155,6 +160,7 @@ void RenderEngine::VulkanInternals::createLogicalDevice() {
 }
 
 bool RenderEngine::VulkanInternals::isDeviceSuitable(VkPhysicalDevice device) {
+    ZoneScoped;
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(device, &deviceProperties);
 
@@ -181,6 +187,7 @@ bool RenderEngine::VulkanInternals::isDeviceSuitable(VkPhysicalDevice device) {
 }
 
 bool RenderEngine::VulkanInternals::checkDeviceExtensionSupport(VkPhysicalDevice device) {
+    ZoneScoped;
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
@@ -197,6 +204,7 @@ bool RenderEngine::VulkanInternals::checkDeviceExtensionSupport(VkPhysicalDevice
 }
 
 RenderEngine::VulkanInternals::QueueFamilyIndices RenderEngine::VulkanInternals::findQueueFamilies(VkPhysicalDevice device) {
+    ZoneScoped;
     QueueFamilyIndices indices;
 
     uint32_t queueFamilyCount = 0;
@@ -228,6 +236,7 @@ RenderEngine::VulkanInternals::QueueFamilyIndices RenderEngine::VulkanInternals:
 }
 
 RenderEngine::VulkanInternals::SwapChainSupportDetails RenderEngine::VulkanInternals::querySwapChainSupport(VkPhysicalDevice device) {
+    ZoneScoped;
     SwapChainSupportDetails details;
 
     // Load supported surface capabilities
@@ -255,6 +264,7 @@ RenderEngine::VulkanInternals::SwapChainSupportDetails RenderEngine::VulkanInter
 }
 
 void RenderEngine::VulkanInternals::createSwapChain() {
+    ZoneScoped;
     SwapChainSupportDetails swapChainSupport = querySwapChainSupport(context.physicalDevice);
 
     VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
@@ -318,6 +328,7 @@ void RenderEngine::VulkanInternals::createSwapChain() {
 }
 
 void RenderEngine::VulkanInternals::cleanupSwapChain() {
+    ZoneScoped;
     for (auto framebuffer : swapChainFramebuffers) {
         vkDestroyFramebuffer(context.device, framebuffer, nullptr);
     }
@@ -328,6 +339,7 @@ void RenderEngine::VulkanInternals::cleanupSwapChain() {
 }
 
 void RenderEngine::VulkanInternals::recreateSwapChain() {
+    ZoneScoped;
     int width = 0, height = 0;
     glfwGetFramebufferSize(window, &width, &height);
     while (width == 0 || height == 0) {
@@ -346,6 +358,7 @@ void RenderEngine::VulkanInternals::recreateSwapChain() {
 }
 
 void RenderEngine::VulkanInternals::createImageViews() {
+    ZoneScoped;
     swapChainImageViews.resize(swapChainImages.size());
     for (size_t i = 0; i < swapChainImages.size(); i++) {
         swapChainImageViews[i] = createImageView(context, swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -353,6 +366,7 @@ void RenderEngine::VulkanInternals::createImageViews() {
 }
 
 void RenderEngine::VulkanInternals::createRenderPass() {
+    ZoneScoped;
     VkAttachmentDescription colorAttachment{};
     colorAttachment.format = swapChainImageFormat;
     colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -391,6 +405,7 @@ void RenderEngine::VulkanInternals::createRenderPass() {
 }
 
 void RenderEngine::VulkanInternals::createDescriptorSetLayouts() {
+    ZoneScoped;
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
     uboLayoutBinding.binding = 0;
     uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -409,6 +424,7 @@ void RenderEngine::VulkanInternals::createDescriptorSetLayouts() {
 }
 
 void RenderEngine::VulkanInternals::createPipelines() {
+    ZoneScoped;
     // read the shaders into their respective buffers
     auto vertShaderCode = readShaderFile("testShader.vert.spv");
     auto fragShaderCode = readShaderFile("testShader.frag.spv");
@@ -550,6 +566,7 @@ void RenderEngine::VulkanInternals::createPipelines() {
 }
 
 void RenderEngine::VulkanInternals::createFrameBuffers() {
+    ZoneScoped;
     swapChainFramebuffers.resize(swapChainImageViews.size());
 
     for (size_t i = 0; i < swapChainImageViews.size(); i++) {
@@ -573,6 +590,7 @@ void RenderEngine::VulkanInternals::createFrameBuffers() {
 }
 
 void RenderEngine::VulkanInternals::createCommandPool() {
+    ZoneScoped;
     QueueFamilyIndices queueFamilyIndices = findQueueFamilies(context.physicalDevice);
 
     VkCommandPoolCreateInfo poolInfo{};
@@ -586,6 +604,7 @@ void RenderEngine::VulkanInternals::createCommandPool() {
 }
 
 VkFormat RenderEngine::VulkanInternals::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+    ZoneScoped;
     for (VkFormat format : candidates) {
         VkFormatProperties props;
         vkGetPhysicalDeviceFormatProperties(context.physicalDevice, format, &props);
@@ -602,6 +621,7 @@ VkFormat RenderEngine::VulkanInternals::findSupportedFormat(const std::vector<Vk
 }
 
 void RenderEngine::VulkanInternals::createUniformBuffers() {
+    ZoneScoped;
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
     uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
@@ -616,6 +636,7 @@ void RenderEngine::VulkanInternals::createUniformBuffers() {
 }
 
 void RenderEngine::VulkanInternals::updateUniformBuffer(uint32_t currentImage) {
+    ZoneScoped;
 
     auto newCurrentTime = std::chrono::high_resolution_clock::now();
     deltaTime = std::chrono::duration_cast<std::chrono::microseconds>(newCurrentTime - oldCurrentTime);
@@ -631,6 +652,7 @@ void RenderEngine::VulkanInternals::updateUniformBuffer(uint32_t currentImage) {
 }
 
 void RenderEngine::VulkanInternals::createDescriptorPool() {
+    ZoneScoped;
     std::array<VkDescriptorPoolSize, 1> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
@@ -648,6 +670,7 @@ void RenderEngine::VulkanInternals::createDescriptorPool() {
 }
 
 void RenderEngine::VulkanInternals::createDescriptorSets() {
+    ZoneScoped;
     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, context.uniformDescriptorSetLayout);
     VkDescriptorSetAllocateInfo UBOAllocInfo{};
     UBOAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -680,6 +703,7 @@ void RenderEngine::VulkanInternals::createDescriptorSets() {
 }
 
 void RenderEngine::VulkanInternals::createCommandBuffers() {
+    ZoneScoped;
     commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
     VkCommandBufferAllocateInfo allocInfo{};
@@ -694,6 +718,7 @@ void RenderEngine::VulkanInternals::createCommandBuffers() {
 }
 
 void RenderEngine::VulkanInternals::createSyncObjects() {
+    ZoneScoped;
     imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
@@ -716,6 +741,7 @@ void RenderEngine::VulkanInternals::createSyncObjects() {
 }
 
 void RenderEngine::VulkanInternals::recordCommandBuffer(std::vector<std::unique_ptr<ComputeWrapperBase>>& wrappers, VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+    ZoneScoped;
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -781,6 +807,7 @@ void RenderEngine::VulkanInternals::recordCommandBuffer(std::vector<std::unique_
 }
 
 VkShaderModule RenderEngine::VulkanInternals::createShaderModule(const std::vector<char>& code) {
+    ZoneScoped;
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = code.size();
@@ -795,6 +822,7 @@ VkShaderModule RenderEngine::VulkanInternals::createShaderModule(const std::vect
 }
 
 VkSurfaceFormatKHR RenderEngine::VulkanInternals::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
+    ZoneScoped;
     for (const auto& availableFormat : availableFormats) {
         if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
             return availableFormat;
@@ -806,6 +834,7 @@ VkSurfaceFormatKHR RenderEngine::VulkanInternals::chooseSwapSurfaceFormat(const 
 }
 
 VkPresentModeKHR RenderEngine::VulkanInternals::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
+    ZoneScoped;
     for (const auto& availablePresentMode : availablePresentModes) {
         if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
             return availablePresentMode;
@@ -815,6 +844,7 @@ VkPresentModeKHR RenderEngine::VulkanInternals::chooseSwapPresentMode(const std:
 }
 
 VkExtent2D RenderEngine::VulkanInternals::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
+    ZoneScoped;
     if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
         return capabilities.currentExtent;
     }
@@ -835,6 +865,7 @@ VkExtent2D RenderEngine::VulkanInternals::chooseSwapExtent(const VkSurfaceCapabi
 }
 
 void RenderEngine::VulkanInternals::createInstance() {
+    ZoneScoped;
     if (enableValidationLayers && !checkValidationLayerSupport())
         throw std::runtime_error("validation layers requested, but not available!");
 
@@ -874,6 +905,7 @@ void RenderEngine::VulkanInternals::createInstance() {
 }
 
 bool RenderEngine::VulkanInternals::checkValidationLayerSupport() {
+    ZoneScoped;
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
@@ -899,17 +931,20 @@ bool RenderEngine::VulkanInternals::checkValidationLayerSupport() {
 }
 
 void RenderEngine::VulkanInternals::createSurface() {
+    ZoneScoped;
     if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
         throw std::runtime_error("failed to create window surface!");
     }
 }
 
 void RenderEngine::VulkanInternals::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+    ZoneScoped;
     auto self = static_cast<VulkanInternals*>(glfwGetWindowUserPointer(window));
     self->frameBufferResized = true;
 }
 
 void RenderEngine::VulkanInternals::handleUserInput() {
+    ZoneScoped;
     // this forwards vector is in the xy plane of the world, but rotated around z to line up with the camera front vector
     glm::vec3 worldUp = glm::vec3{ 0.f, 0.f, 1.f };
     glm::vec3 cameraForward = glm::normalize(glm::cross(worldUp, cameraRight));
@@ -951,6 +986,7 @@ void RenderEngine::VulkanInternals::handleUserInput() {
 }
 
 void RenderEngine::VulkanInternals::cleanup() {
+    ZoneScoped;
 	vkDeviceWaitIdle(context.device);
 
     cleanupSwapChain();
@@ -999,12 +1035,15 @@ RenderEngine::~RenderEngine() = default;
 RenderEngine::RenderEngine() : internals(std::make_unique<VulkanInternals>()) { }
 
 void RenderEngine::initialize() {
+    ZoneScoped;
     internals->initWindow();
     internals->initVulkan();
 }
 
 // TODO move handleFrame to vulkanInternals?
 void RenderEngine::handleFrame() {
+    ZoneScoped;
+
     // update objects GPU buffers, if applicable
     for (auto& wrapper : wrappers) {
         auto& lines = wrapper->getLines();
@@ -1092,6 +1131,7 @@ bool RenderEngine::shouldWindowClose() {
 }
 
 void RenderEngine::cleanup() {
+    ZoneScoped;
 	vkDeviceWaitIdle(internals->context.device);
 
     wrappers.clear();

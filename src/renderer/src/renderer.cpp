@@ -73,6 +73,19 @@ void RenderEngine::VulkanInternals::initVulkan() {
     createDescriptorSetLayouts();
     createPipelines();
     createCommandPool();
+
+    vkResetQueryPool = (PFN_vkResetQueryPoolEXT)vkGetDeviceProcAddr(context.device, "vkResetQueryPoolEXT");
+    vkGetPhysicalDeviceCalibrateableTimeDomains = (PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceCalibrateableTimeDomainsEXT");
+    vkGetCalibratedTimestamps = (PFN_vkGetCalibratedTimestampsEXT)vkGetDeviceProcAddr(context.device, "vkGetCalibratedTimestampsEXT");
+
+    tracyContext = TracyVkContextHostCalibrated(
+        context.physicalDevice,
+        context.device,
+        vkResetQueryPool,
+        vkGetPhysicalDeviceCalibrateableTimeDomains,
+        vkGetCalibratedTimestamps
+    );
+
     createFrameBuffers();
     createUniformBuffers();
     createDescriptorPool();
@@ -148,6 +161,12 @@ void RenderEngine::VulkanInternals::createLogicalDevice() {
     else {
         createInfo.enabledLayerCount = 0;
     }
+
+    // Enable host query reset feature
+    VkPhysicalDeviceHostQueryResetFeatures hostQueryResetFeatures{};
+    hostQueryResetFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES;
+    hostQueryResetFeatures.hostQueryReset = VK_TRUE;
+    createInfo.pNext = &hostQueryResetFeatures;
 
     // Finally actually create the logical device
     if (vkCreateDevice(context.physicalDevice, &createInfo, nullptr, &context.device) != VK_SUCCESS) {
@@ -750,56 +769,55 @@ void RenderEngine::VulkanInternals::recordCommandBuffer(std::vector<std::unique_
     if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
         throw std::runtime_error("failed to begin recording command buffer!");
 
-    std::array<VkClearValue, 1> clearValues{};
-    clearValues[0].color = { {CLEAR_COLOR.x, CLEAR_COLOR.y, CLEAR_COLOR.z, 1.f} };  // swapchain
-
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = renderPass;
-    renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
-    renderPassInfo.renderArea.offset = { 0, 0 };
-    renderPassInfo.renderArea.extent = swapChainExtent;
-    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-    renderPassInfo.pClearValues = clearValues.data();
-
-    // Scissor and viewport were set to dynamic, so we set them here now
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(swapChainExtent.width);
-    viewport.height = static_cast<float>(swapChainExtent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    VkRect2D scissor{};
-    scissor.offset = { 0, 0 };
-    scissor.extent = swapChainExtent;
-
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    // ===============================================================
-
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &UBODescriptorSets[currentFrame], 0, nullptr);
-
-    // TODO
-    for (auto& wrapper : wrappers) {
-        LineSet& lines = wrapper->getLines();
-        lines.render(commandBuffer);
-    }
-    /*
-    for (auto& object : objects)
     {
-        if (object->isObjectRendered && object->getTransparency() >= 0.99f)
-            object->render(commandBuffer, pipelineLayout);
-    }
-    */
-    
-    // ========================================
+        TracyVkZone(tracyContext, commandBuffer, "Render Frame");
 
-    vkCmdEndRenderPass(commandBuffer);
+        std::array<VkClearValue, 1> clearValues{};
+        clearValues[0].color = { {CLEAR_COLOR.x, CLEAR_COLOR.y, CLEAR_COLOR.z, 1.f} };  // swapchain
+
+        VkRenderPassBeginInfo renderPassInfo{};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassInfo.renderPass = renderPass;
+        renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+        renderPassInfo.renderArea.offset = { 0, 0 };
+        renderPassInfo.renderArea.extent = swapChainExtent;
+        renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+        renderPassInfo.pClearValues = clearValues.data();
+
+        // Scissor and viewport were set to dynamic, so we set them here now
+        VkViewport viewport{};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = static_cast<float>(swapChainExtent.width);
+        viewport.height = static_cast<float>(swapChainExtent.height);
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+
+        VkRect2D scissor{};
+        scissor.offset = { 0, 0 };
+        scissor.extent = swapChainExtent;
+
+        vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+        {
+            TracyVkZone(tracyContext, commandBuffer, "Render Pass 1");
+            // ===============================================================
+
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+            vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+            vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &UBODescriptorSets[currentFrame], 0, nullptr);
+
+            for (auto& wrapper : wrappers) {
+                TracyVkZone(tracyContext, commandBuffer, "Wrapper Render");
+                LineSet& lines = wrapper->getLines();
+                lines.render(commandBuffer);
+            }
+
+            // ========================================
+        }
+        
+        vkCmdEndRenderPass(commandBuffer);
+    }
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
@@ -875,7 +893,7 @@ void RenderEngine::VulkanInternals::createInstance() {
     appInfo.applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
     appInfo.pEngineName = "Custom V8 Engine";
     appInfo.engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
-    appInfo.apiVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
+    appInfo.apiVersion = VK_API_VERSION_1_2;
 
     // Gather the necessary vulkan extensions for the OS it is being compiled for
     uint32_t glfwExtensionsCount = 0;
@@ -989,6 +1007,8 @@ void RenderEngine::VulkanInternals::cleanup() {
     ZoneScoped;
 	vkDeviceWaitIdle(context.device);
 
+    TracyVkDestroy(tracyContext);
+
     cleanupSwapChain();
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -1094,9 +1114,13 @@ void RenderEngine::handleFrame() {
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
+
     if (vkQueueSubmit(internals->context.graphicsQueue, 1, &submitInfo, internals->inFlightFences[internals->currentFrame]) != VK_SUCCESS) {
         throw std::runtime_error("failed to submit draw command buffer!");
     }
+
+    TracyVkCollectHost(internals->tracyContext);
+
 
     // Submit the results back to the swapchain, to be presented to the screen
     VkPresentInfoKHR presentInfo{};

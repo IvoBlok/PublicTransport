@@ -38,6 +38,11 @@ namespace renderer {
 
 
     struct RenderEngine::VulkanInternals {
+        tracy::VkCtx* tracyContext = nullptr;
+        PFN_vkResetQueryPoolEXT vkResetQueryPool = nullptr;
+        PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT vkGetPhysicalDeviceCalibrateableTimeDomains = nullptr;
+        PFN_vkGetCalibratedTimestampsEXT vkGetCalibratedTimestamps = nullptr;
+
         VulkanContext context;
 
         GLFWwindow* window;

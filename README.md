@@ -14,7 +14,10 @@ meson compile -C build
 ```
 
 # To Do
-- [ ] Replace Fence usage with timeline semaphore
+- [x] Replace Fence usage with timeline semaphore
+- [ ] Move UBO resources to frameResources struct?
+- [ ] Use VMA for renderer memory management?
+- [ ] Fix frames-in-flight, such that proper concurrency between GPU and CPU is used
 - [ ] Add / rework how to add/extend lines to a LineSet
 - [ ] Check that the double buffering approach for rendering thread - compute thread functions (maybe a triple buffer is needed to avoid stalls on render thread?)
 - [ ] Add other primary render object types (polyline / curves, arrows?, Simple Shapes?)

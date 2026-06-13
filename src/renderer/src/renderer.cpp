@@ -41,7 +41,7 @@ RenderEngine::VulkanInternals::VulkanInternals() {
 	cameraRight = glm::vec3{ 1.f, 0.f, 0.f };
     
     currentFrame = 0;
-    frameBufferResized = false;
+    swapchainInvalid = false;
 }
 
 bool RenderEngine::VulkanInternals::QueueFamilyIndices::isComplete() {
@@ -168,6 +168,20 @@ void RenderEngine::VulkanInternals::createLogicalDevice() {
     VkPhysicalDeviceHostQueryResetFeatures hostQueryResetFeatures{};
     hostQueryResetFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES;
     hostQueryResetFeatures.hostQueryReset = VK_TRUE;
+
+    // Enable timeline semaphores
+    VkPhysicalDeviceTimelineSemaphoreFeatures timelineFeatures{};
+    timelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+    timelineFeatures.timelineSemaphore = VK_TRUE;
+
+    // Enable synchronization2
+    VkPhysicalDeviceVulkan13Features vulkan13Features{};
+    vulkan13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    vulkan13Features.synchronization2 = VK_TRUE;
+
+    // Chain the features together: hostQueryReset -> timeline -> vulkan13
+    hostQueryResetFeatures.pNext = &timelineFeatures;
+    timelineFeatures.pNext = &vulkan13Features;
     createInfo.pNext = &hostQueryResetFeatures;
 
     // Finally actually create the logical device
@@ -614,14 +628,14 @@ void RenderEngine::VulkanInternals::createCommandPool() {
     ZoneScoped;
     QueueFamilyIndices queueFamilyIndices = findQueueFamilies(context.physicalDevice);
 
-    VkCommandPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+    VkCommandPoolCreateInfo poolInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .queueFamilyIndex = queueFamilyIndices.graphicsFamily.value()
+    };
 
-    if (vkCreateCommandPool(context.device, &poolInfo, nullptr, &context.commandPool) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create command pool!");
-    }
+    if (vkCreateCommandPool(context.device, &poolInfo, nullptr, &context.commandPool) != VK_SUCCESS)
+        throw std::runtime_error("failed to create generic command pool!");
 }
 
 VkFormat RenderEngine::VulkanInternals::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
@@ -725,54 +739,75 @@ void RenderEngine::VulkanInternals::createDescriptorSets() {
 
 void RenderEngine::VulkanInternals::createCommandBuffers() {
     ZoneScoped;
-    commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    
+    QueueFamilyIndices queueFamilyIndices = findQueueFamilies(context.physicalDevice);
 
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = context.commandPool;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = (uint32_t)MAX_FRAMES_IN_FLIGHT;
+    for (FrameResources& resource : frameResources) {
 
-    if (vkAllocateCommandBuffers(context.device, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate command buffer!");
+        // each has its own command pool, for faster buffer resets
+        VkCommandPoolCreateInfo poolInfo {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+            .queueFamilyIndex = queueFamilyIndices.graphicsFamily.value()
+        };
+        if (vkCreateCommandPool(context.device, &poolInfo, nullptr, &resource.commandPool) != VK_SUCCESS)
+            throw std::runtime_error("Unable to create command buffer pool");
+
+        VkCommandBufferAllocateInfo cmdAllocInfo {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandPool = resource.commandPool,
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = 1
+        };
+        if (vkAllocateCommandBuffers(context.device, &cmdAllocInfo, &resource.commandBuffer) != VK_SUCCESS)
+            throw std::runtime_error("Unable to create command buffer!");
     }
 }
 
 void RenderEngine::VulkanInternals::createSyncObjects() {
     ZoneScoped;
-    imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+    
+    renderCompleteSemaphores.resize(swapChainImages.size());
+    for (VkSemaphore& semaphore : renderCompleteSemaphores) {
+        VkSemaphoreCreateInfo semaphoreInfo{ .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 
-    VkSemaphoreCreateInfo semaphoreInfo{};
-    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-    VkFenceCreateInfo fenceInfo{};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        if (vkCreateSemaphore(context.device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
-            vkCreateSemaphore(context.device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
-            vkCreateFence(context.device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
-
-            throw std::runtime_error("failed to create synchronization objects for a frame!");
-        }
+		if (vkCreateSemaphore(context.device, &semaphoreInfo, nullptr, &semaphore) != VK_SUCCESS)
+			throw std::runtime_error("Error creating the render-complete semaphore");
     }
+
+
+    VkSemaphoreTypeCreateInfo semaphoreTypeInfo {
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
+		.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
+		.initialValue = 0
+	};
+	VkSemaphoreCreateInfo semaphoreInfo {
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+		.pNext = &semaphoreTypeInfo
+	};
+
+	if (vkCreateSemaphore(context.device, &semaphoreInfo, nullptr, &timelineSemaphore) != VK_SUCCESS)
+		throw std::runtime_error("Unable to create the timeline semaphore");
+
+
+	for (FrameResources &resource : frameResources) {
+		VkSemaphoreCreateInfo semaphoreInfo{ .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+		if (vkCreateSemaphore(context.device, &semaphoreInfo, nullptr, &resource.imageAcquiredSemaphore) != VK_SUCCESS)
+			throw std::runtime_error("Error creating the per-frame image-acquire semaphore");
+	}
 }
 
-void RenderEngine::VulkanInternals::recordCommandBuffer(std::vector<std::unique_ptr<ComputeWrapperBase>>& wrappers, VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+void RenderEngine::VulkanInternals::recordCommandBuffer(std::vector<std::unique_ptr<ComputeWrapperBase>>& wrappers, FrameResources& frameResource, int frameIndex, uint32_t imageIndex) {
     ZoneScoped;
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     beginInfo.pInheritanceInfo = nullptr; // Optional
 
-    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
+    if (vkBeginCommandBuffer(frameResource.commandBuffer, &beginInfo) != VK_SUCCESS)
         throw std::runtime_error("failed to begin recording command buffer!");
 
     {
-        TracyVkZone(tracyContext, commandBuffer, "Render Frame");
+        TracyVkZone(tracyContext, frameResource.commandBuffer, "Render Frame");
 
         std::array<VkClearValue, 1> clearValues{};
         clearValues[0].color = { {CLEAR_COLOR.x, CLEAR_COLOR.y, CLEAR_COLOR.z, 1.f} };  // swapchain
@@ -799,31 +834,30 @@ void RenderEngine::VulkanInternals::recordCommandBuffer(std::vector<std::unique_
         scissor.offset = { 0, 0 };
         scissor.extent = swapChainExtent;
 
-        vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBeginRenderPass(frameResource.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
         {
-            TracyVkZone(tracyContext, commandBuffer, "Render Pass 1");
+            TracyVkZone(tracyContext, frameResource.commandBuffer, "Render Pass 1");
             // ===============================================================
 
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-            vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-            vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &UBODescriptorSets[currentFrame], 0, nullptr);
+            vkCmdBindPipeline(frameResource.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+            vkCmdSetViewport(frameResource.commandBuffer, 0, 1, &viewport);
+            vkCmdSetScissor(frameResource.commandBuffer, 0, 1, &scissor);
+            vkCmdBindDescriptorSets(frameResource.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &UBODescriptorSets[frameIndex], 0, nullptr);
 
             for (auto& wrapper : wrappers) {
-                TracyVkZone(tracyContext, commandBuffer, "Wrapper Render");
+                TracyVkZone(tracyContext, frameResource.commandBuffer, "Wrapper Render");
                 LineSet& lines = wrapper->getLines();
-                lines.render(commandBuffer);
+                lines.render(frameResource.commandBuffer);
             }
 
             // ========================================
         }
         
-        vkCmdEndRenderPass(commandBuffer);
+        vkCmdEndRenderPass(frameResource.commandBuffer);
     }
 
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+    if (vkEndCommandBuffer(frameResource.commandBuffer) != VK_SUCCESS)
         throw std::runtime_error("failed to record command buffer!");
-    }
 }
 
 VkShaderModule RenderEngine::VulkanInternals::createShaderModule(const std::vector<char>& code) {
@@ -895,7 +929,7 @@ void RenderEngine::VulkanInternals::createInstance() {
     appInfo.applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
     appInfo.pEngineName = "Custom V8 Engine";
     appInfo.engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
-    appInfo.apiVersion = VK_API_VERSION_1_2;
+    appInfo.apiVersion = VK_API_VERSION_1_3;
 
     // Gather the necessary vulkan extensions for the OS it is being compiled for
     uint32_t glfwExtensionsCount = 0;
@@ -960,7 +994,7 @@ void RenderEngine::VulkanInternals::createSurface() {
 void RenderEngine::VulkanInternals::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
     ZoneScoped;
     auto self = static_cast<VulkanInternals*>(glfwGetWindowUserPointer(window));
-    self->frameBufferResized = true;
+    self->swapchainInvalid = true;
 }
 
 void RenderEngine::VulkanInternals::handleUserInput() {
@@ -1019,32 +1053,28 @@ void RenderEngine::VulkanInternals::cleanup() {
     }
 
     vkDestroyDescriptorPool(context.device, context.descriptorPool, nullptr);
-
     vkDestroyDescriptorSetLayout(context.device, context.uniformDescriptorSetLayout, nullptr);
 
     vkDestroyPipeline(context.device, pipeline, nullptr);
-
     vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
 
     vkDestroyRenderPass(context.device, renderPass, nullptr);
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vkDestroySemaphore(context.device, renderFinishedSemaphores[i], nullptr);
-        vkDestroySemaphore(context.device, imageAvailableSemaphores[i], nullptr);
-        vkDestroyFence(context.device, inFlightFences[i], nullptr);
+    vkDestroySemaphore(context.device, timelineSemaphore, nullptr);
+    for (auto& resource : frameResources) {
+        vkDestroySemaphore(context.device, resource.imageAcquiredSemaphore, nullptr);
+        vkDestroyCommandPool(context.device, resource.commandPool, nullptr);
     }
+    for (auto& semaphore : renderCompleteSemaphores)
+        vkDestroySemaphore(context.device, semaphore, nullptr);
 
     vkDestroyCommandPool(context.device, context.commandPool, nullptr);
-
     vkDestroyDevice(context.device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyInstance(instance, nullptr);
 
     glfwDestroyWindow(window);
-
     glfwTerminate();
-
-    context.device = VK_NULL_HANDLE;
 }
 
 
@@ -1066,88 +1096,126 @@ void RenderEngine::initialize() {
 void RenderEngine::handleFrame() {
     ZoneScoped;
 
+    glfwPollEvents();
+    internals->handleUserInput();
+
     // update objects GPU buffers, if applicable
     for (auto& wrapper : wrappers) {
         auto& lines = wrapper->getLines();
         lines.updateGPU();
     }
 
-    // TEMP
+    // TEMP FPS measurement
     float deltaSeconds = internals->deltaTime.count() / 1'000'000.0f;
     float fps = 1.0f / deltaSeconds;
     std::cout << "FPS: " << fps << std::endl;
 
-    glfwPollEvents();
 
-    // Wait for the previous frame to finish rendering
-    vkWaitForFences(internals->context.device, 1, &internals->inFlightFences[internals->currentFrame], VK_TRUE, UINT64_MAX);
-
-    // Retrieve a new image from the swap chain
-    uint32_t imageIndex;
-    VkResult acquireResult = vkAcquireNextImageKHR(internals->context.device, internals->swapChain, UINT64_MAX, internals->imageAvailableSemaphores[internals->currentFrame], VK_NULL_HANDLE, &imageIndex);
-
-    if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) {
+    // actual frame handling
+    // ===============================================
+    if (internals->swapchainInvalid) {
+        internals->swapchainInvalid = false;
         internals->recreateSwapChain();
+    }
+
+    // set up frame counters
+    uint64_t frameResIndex = (internals->currentFrame++) % MAX_FRAMES_IN_FLIGHT;
+    uint64_t frameID = ++internals->nextSignalValue;
+    uint64_t waitForID = frameID > MAX_FRAMES_IN_FLIGHT ? frameID - MAX_FRAMES_IN_FLIGHT : 0;
+
+    if (waitForID > 0) {
+        // wait for the timelineSemaphore to signal that a frame-in-flight is available
+        VkSemaphoreWaitInfo waitInfo {
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
+            .semaphoreCount = 1,
+            .pSemaphores = &internals->timelineSemaphore,
+            .pValues = &waitForID
+        };
+        vkWaitSemaphores(internals->context.device, &waitInfo, UINT64_MAX);
+    }
+
+    // get frame resources for this new frame, and reset its command buffer
+    FrameResources& resources = internals->frameResources[frameResIndex];
+    vkResetCommandPool(internals->context.device, resources.commandPool, 0);
+
+    // asynchronously? request a swapchain image to write to
+    uint32_t imageIndex = 0;
+    VkResult acquireResult = vkAcquireNextImageKHR(internals->context.device, internals->swapChain, UINT64_MAX, resources.imageAcquiredSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+    if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR || acquireResult == VK_SUBOPTIMAL_KHR) {
+        internals->swapchainInvalid = true;
         return;
     }
-    else if (acquireResult != VK_SUCCESS && acquireResult != VK_SUBOPTIMAL_KHR) {
+    else if (acquireResult != VK_SUCCESS)
         throw std::runtime_error("failed to acquire swap chain image!");
-    }
     
-    // Only reset the fence if work will be submitted to the GPU
-    vkResetFences(internals->context.device, 1, &internals->inFlightFences[internals->currentFrame]);
+    // to the actual command buffer recording
+    internals->updateUniformBuffer(frameResIndex);
+    internals->recordCommandBuffer(wrappers, resources, frameResIndex, imageIndex);
 
-    // Update the uniform buffers
-    internals->updateUniformBuffer(internals->currentFrame);
-    internals->recordCommandBuffer(wrappers, internals->commandBuffers[internals->currentFrame], imageIndex);
+    // add semaphore dependency, such that we don't start rendering the frame untill the swapchain image has been retrieved
+    VkSemaphoreSubmitInfo acquireWait {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        .semaphore = resources.imageAcquiredSemaphore,
+        .value = 0,
+        .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT |
+                    VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
+    };
 
-    // Submit the command buffer.. i.e. actually do the graphics computations
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    VkCommandBufferSubmitInfo cmdInfo {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+        .commandBuffer = resources.commandBuffer
+    };
 
-    VkSemaphore waitSemaphores[] = { internals->imageAvailableSemaphores[internals->currentFrame] };
-    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = waitSemaphores;
-    submitInfo.pWaitDstStageMask = waitStages;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &internals->commandBuffers[internals->currentFrame];
-    VkSemaphore signalSemaphores[] = { internals->renderFinishedSemaphores[internals->currentFrame] };
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signalSemaphores;
+    std::vector<VkSemaphoreSubmitInfo> signalInfos;
+    // Binary semaphore for presentation (per swapchain image)
+    signalInfos.push_back({
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        .semaphore = internals->renderCompleteSemaphores[imageIndex],
+        .value = 0,
+        .stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT
+    });
+    // Timeline semaphore for frame completion
+    signalInfos.push_back({
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        .semaphore = internals->timelineSemaphore,
+        .value = frameID,
+        .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT
+    });
 
+    // wait with rendering untill swapchain image has been acquired (flagged by imageAcquiredSemaphore), and set/update the renderCompleteSemaphore and timelineSemaphore once the frame is complete
+    VkSubmitInfo2 submitInfo{
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+        .waitSemaphoreInfoCount = 1,
+        .pWaitSemaphoreInfos = &acquireWait,
+        .commandBufferInfoCount = 1,
+        .pCommandBufferInfos = &cmdInfo,
+        .signalSemaphoreInfoCount = static_cast<uint32_t>(signalInfos.size()),
+        .pSignalSemaphoreInfos = signalInfos.data()
+    };
 
-    if (vkQueueSubmit(internals->context.graphicsQueue, 1, &submitInfo, internals->inFlightFences[internals->currentFrame]) != VK_SUCCESS) {
-        throw std::runtime_error("failed to submit draw command buffer!");
-    }
+    VkResult submitResult = vkQueueSubmit2(internals->context.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    if (submitResult != VK_SUCCESS)
+        throw std::runtime_error("failed to submit command buffer");
 
     TracyVkCollectHost(internals->tracyContext);
 
-
     // Submit the results back to the swapchain, to be presented to the screen
-    VkPresentInfoKHR presentInfo{};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = signalSemaphores;
-    VkSwapchainKHR swapChains[] = { internals->swapChain };
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = swapChains;
-    presentInfo.pImageIndices = &imageIndex;
-    presentInfo.pResults = nullptr; // Optional
-
+    VkPresentInfoKHR presentInfo{
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &internals->renderCompleteSemaphores[imageIndex],
+        .swapchainCount = 1,
+        .pSwapchains = &internals->swapChain,
+        .pImageIndices = &imageIndex,
+        .pResults = nullptr
+    };
     VkResult presentResult = vkQueuePresentKHR(internals->context.presentQueue, &presentInfo);
 
-    if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR || internals->frameBufferResized) {
-        internals->frameBufferResized = false;
-        internals->recreateSwapChain();
-    }
-    else if (presentResult != VK_SUCCESS) {
+    if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR)
+        internals->swapchainInvalid = true;
+    else if (presentResult != VK_SUCCESS)
         throw std::runtime_error("failed to present swap chain image!");
-    }
-
-    internals->handleUserInput();
-
-    internals->currentFrame = (internals->currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
     FrameMark;
 }

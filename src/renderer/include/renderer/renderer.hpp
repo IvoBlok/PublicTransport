@@ -47,54 +47,46 @@ namespace renderer {
         void* tracyContext = nullptr;
         #endif
 
+        uint64_t currentFrame = 0;
+        uint64_t nextSignalValue = 0;
+        std::chrono::time_point<std::chrono::high_resolution_clock> oldCurrentTime;
+        std::chrono::microseconds deltaTime;
+
+        // core info
         VulkanContext context;
-
         GLFWwindow* window;
-
         VkInstance instance;
         VkSurfaceKHR surface;
 
+        // swapchain related
         VkFormat swapChainImageFormat;
         VkExtent2D swapChainExtent;
-
         VkSwapchainKHR swapChain;
-        std::vector<VkImage> swapChainImages;
+        std::vector<VkImage> swapChainImages; // TODO switch to std::array with max_frames_in_flight length?
         std::vector<VkImageView> swapChainImageViews;
         std::vector<VkFramebuffer> swapChainFramebuffers;
+        std::vector<VkSemaphore> renderCompleteSemaphores;
+        bool swapchainInvalid;
 
+        // pipeline related
         VkRenderPass renderPass;
 
         VkPipelineLayout pipelineLayout;
         VkPipeline pipeline;
 
-        // holds the uniform buffer for each 'frame in flight'
-        std::vector<VkBuffer> uniformBuffers;
+        std::vector<VkDescriptorSet> UBODescriptorSets;
+        std::vector<VkBuffer> uniformBuffers; // holds the uniform buffer for each 'frame in flight'
         std::vector<VkDeviceMemory> uniformBuffersMemory;
         std::vector<void*> uniformBuffersMapped;
 
-        std::vector<VkDescriptorSet> UBODescriptorSets;
-        VkDescriptorSet compositeDescriptorSet;
-
-        // holds the command buffer for each 'frame in flight'
-        std::vector<VkCommandBuffer> commandBuffers;
-
         // various variables for syncing when memory is safe to be used
-        std::vector<VkSemaphore> imageAvailableSemaphores;
-        std::vector<VkSemaphore> renderFinishedSemaphores;
-        std::vector<VkFence> inFlightFences;
+        VkSemaphore timelineSemaphore;
+        std::array<FrameResources, MAX_FRAMES_IN_FLIGHT> frameResources;
 
-        // 'frameBufferResized' describes if the user resized the window, triggering an update of internal buffers
-        bool frameBufferResized;
-
-        // 'currentFrame' stores which of the 'frames in flight' is currently being used
-        uint32_t currentFrame;
-        // 'oldCurrentTime' is used to calculate the delta time
-        std::chrono::time_point<std::chrono::high_resolution_clock> oldCurrentTime;
-
+        // periferal stuff: camera, timing, metrics...
         glm::vec3 cameraPosition;
         glm::vec3 cameraFront;
         glm::vec3 cameraRight;
-        std::chrono::microseconds deltaTime;
 
 
         struct QueueFamilyIndices {
@@ -136,7 +128,7 @@ namespace renderer {
         void createDescriptorSets();
         void createCommandBuffers();
         void createSyncObjects();
-        void recordCommandBuffer(std::vector<std::unique_ptr<ComputeWrapperBase>>& wrappers, VkCommandBuffer commandBuffer, uint32_t imageIndex);
+        void recordCommandBuffer(std::vector<std::unique_ptr<ComputeWrapperBase>>& wrappers, FrameResources& frameResource, int frameIndex, uint32_t imageIndex);
         VkShaderModule createShaderModule(const std::vector<char>& code);
         VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
         VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);

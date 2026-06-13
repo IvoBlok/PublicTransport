@@ -13,6 +13,13 @@ meson compile -C build
 ./build/PTSimulation
 ```
 
+# To Do
+- [ ] Replace Fence usage with timeline semaphore
+- [ ] Add / rework how to add/extend lines to a LineSet
+- [ ] Check that the double buffering approach for rendering thread - compute thread functions (maybe a triple buffer is needed to avoid stalls on render thread?)
+- [ ] Add other primary render object types (polyline / curves, arrows?, Simple Shapes?)
+- [ ] Rethink how to split renderer code, instead of the current engine vs internals
+
 # Profiling
 
 ## Tracy

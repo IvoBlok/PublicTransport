@@ -87,7 +87,7 @@ void RenderEngine::VulkanInternals::initVulkan() {
         vkGetCalibratedTimestamps
     );
     #endif
-    
+
     createFrameBuffers();
     createUniformBuffers();
     createDescriptorPool();

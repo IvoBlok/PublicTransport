@@ -25,7 +25,7 @@ endforeach
 vulkan = dependency('vulkan')
 glfw = dependency('glfw3')
 
-tracy = dependency('tracy', required: get_option('tracy_enable'), static: true)
+tracy = dependency('tracy', required: true, static: true)
 
 renderer_inc = include_directories('include')
 

@@ -74,6 +74,7 @@ void RenderEngine::VulkanInternals::initVulkan() {
     createPipelines();
     createCommandPool();
 
+    #ifdef TRACY_ENABLE
     vkResetQueryPool = (PFN_vkResetQueryPoolEXT)vkGetDeviceProcAddr(context.device, "vkResetQueryPoolEXT");
     vkGetPhysicalDeviceCalibrateableTimeDomains = (PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceCalibrateableTimeDomainsEXT");
     vkGetCalibratedTimestamps = (PFN_vkGetCalibratedTimestampsEXT)vkGetDeviceProcAddr(context.device, "vkGetCalibratedTimestampsEXT");
@@ -85,7 +86,8 @@ void RenderEngine::VulkanInternals::initVulkan() {
         vkGetPhysicalDeviceCalibrateableTimeDomains,
         vkGetCalibratedTimestamps
     );
-
+    #endif
+    
     createFrameBuffers();
     createUniformBuffers();
     createDescriptorPool();

@@ -15,7 +15,8 @@ meson compile -C build
 
 # Profiling
 
-I use tracy here, and installation is managed by meson. The Tracy Server can be built by running: 
+## Tracy
+Firstly, if you want to see both GPU and CPU usage over time, you can profile with tracy. The Tracy Server can be built by running: 
 ```bash
 cd subprojects/tracy
 cmake -B profiler/build -S profiler -DCMAKE_BUILD_TYPE=Release -DLEGACY=ON
@@ -33,3 +34,19 @@ Then start both the server and client, and select the running client from the se
 ./subprojects/tracy/profiler/build/tracy-profiler
 sudo ./build/PTSimulation
 ```
+
+## Perf / Hotspot
+For a CPU focussed profiler, with detailed callstacks, you can use perf, with hotspot to visualize the data:
+```bash
+perf record --call-graph fp ./build/PTSimulation
+perf record --call-graph dwarf ./build/PTSimulation
+sudo hotspot
+```
+
+## Valgrind / KCacheGrind
+Alternatively, for CPU focussed profiling we can use valgrind. This gives very similar info to perf / hotspot, but visualizes it differently:
+```bash
+valgrind --tool=callgrind ./build/PTSimulation
+kcachegrind callgrind.out
+```
+

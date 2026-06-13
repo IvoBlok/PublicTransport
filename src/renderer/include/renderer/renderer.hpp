@@ -38,10 +38,14 @@ namespace renderer {
 
 
     struct RenderEngine::VulkanInternals {
+        #ifdef TRACY_ENABLE
         tracy::VkCtx* tracyContext = nullptr;
         PFN_vkResetQueryPoolEXT vkResetQueryPool = nullptr;
         PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT vkGetPhysicalDeviceCalibrateableTimeDomains = nullptr;
         PFN_vkGetCalibratedTimestampsEXT vkGetCalibratedTimestamps = nullptr;
+        #else
+        void* tracyContext = nullptr;
+        #endif
 
         VulkanContext context;
 

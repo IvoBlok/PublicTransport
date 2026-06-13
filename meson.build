@@ -1,6 +1,6 @@
 project('PTSimulation', 'cpp',
     version : '0.1.0',
-    default_options : ['cpp_std=c++20', 'buildtype=debugoptimized', 'b_ndebug=if-release'])
+    default_options : ['cpp_std=c++20', 'buildtype=debug', 'b_ndebug=if-release'])
 
 # When at some point I want to use rocm, I add this to the relevant meson build file, and compile the relevant .hip files with hipcc
 # hipcc = find_program('/opt/rocm-7.2.3/bin/hipcc', required: true)

@@ -20,7 +20,7 @@
 namespace renderer {
     const uint32_t WIDTH = 800;
     const uint32_t HEIGHT = 600;
-    const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+    const uint32_t MAX_FRAMES_IN_FLIGHT = 3;
 
     const float NEAR_PLANE = 0.01f;
     const float FAR_PLANE = 10.f;

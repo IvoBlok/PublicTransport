@@ -3,8 +3,8 @@
 glslc = find_program('glslc', required : true)
 
 shader_sources = [
-    'shaders/testShader.vert',
-    'shaders/testShader.frag'
+    'shaders/line.vert',
+    'shaders/line.frag'
 ]
 
 shader_targets = []
@@ -30,9 +30,13 @@ tracy = dependency('tracy', required: true, static: true)
 renderer_inc = include_directories('include')
 
 renderer_src = [
-    'src/coreTypes.cpp',
-    'src/renderer.cpp',
-    'src/objectTypes/line.cpp'
+    'src/device.cpp',
+    'src/swapChain.cpp',
+    'src/frameManager.cpp',
+    'src/renderPass.cpp',
+    'src/pipeline.cpp',
+    'src/renderEngine.cpp',
+    'src/renderables/line.cpp'
 ]
 
 renderer_lib = static_library('renderer',

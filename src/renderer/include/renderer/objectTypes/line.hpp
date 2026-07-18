@@ -10,11 +10,9 @@ namespace renderer {
     struct LineSetVertex {
         glm::vec3 pos;
         glm::vec3 color;
-        glm::vec3 normal;
-        glm::vec2 texCoord;
 
         static VkVertexInputBindingDescription getBindingDescription();
-        static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
+        static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions();
     };
 
 
@@ -50,13 +48,13 @@ namespace renderer {
         void endStrip() {
             if (currentStripPoints.size() < 2) return;
 
-            auto& vertices = startWrite();
+            auto& line_vertices = startWrite();
             for (size_t i = 0; i < currentStripPoints.size(); i++) {
-                vertices.push_back({.pos = currentStripPoints[i], .color = currentStripColors[i]});
+                line_vertices.push_back({.pos = currentStripPoints[i], .color = currentStripColors[i]});
 
                 // account for the line_list format; to create a connected line from line segments, we need to copy the non-outer points
                 if (i > 0 && i < currentStripPoints.size() - 1)
-                    vertices.push_back({.pos = currentStripPoints[i], .color = currentStripColors[i]});
+                    line_vertices.push_back({.pos = currentStripPoints[i], .color = currentStripColors[i]});
             }
 
             endWrite();

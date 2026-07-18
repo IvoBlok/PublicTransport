@@ -1106,7 +1106,7 @@ void RenderEngine::handleFrame() {
     }
 
     // TEMP FPS measurement
-    float deltaSeconds = internals->deltaTime.count() / 1'000'000.0f;
+    float deltaSeconds = internals->deltaTime.count() / 1000000.0f;
     float fps = 1.0f / deltaSeconds;
     std::cout << "FPS: " << fps << std::endl;
 

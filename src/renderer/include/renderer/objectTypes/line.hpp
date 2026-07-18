@@ -5,7 +5,6 @@
 
 #include <vector>
 
-// TODO: write this into a LineSet class instead, such that it can store multiple lines within a single buffer (saving atomics and draw calls). If done properly, I could probably still keep it usable if I have a set of 1 line total
 namespace renderer {
     struct LineSetVertex {
         glm::vec3 pos;

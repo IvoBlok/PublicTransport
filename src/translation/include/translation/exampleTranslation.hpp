@@ -1,7 +1,7 @@
 #pragma once
 
-#include <renderer/coreTypes.hpp>
-#include <translation/ComputeWrapperBase.hpp>
+#include <translation/computeWrapperBase.hpp>
+#include <renderer/renderables/line.hpp>
 #include <compute/example.hpp>
 
 /*
@@ -10,7 +10,7 @@ In a proper example, this would probably be split into header and src file
 */
 class ExampleTranslation : public ComputeWrapperBase {
 public:
-    ExampleTranslation(renderer::VulkanContext& renderContext) : renderContext(renderContext), lineSet(renderContext) {
+    ExampleTranslation(renderer::Device& device) : lineSet(device) {
         exampleSim = compute::ExampleSimulation();
         cachedParams = exampleSim.getParameters();
     }
@@ -49,11 +49,16 @@ public:
         */
     }
 
-    renderer::LineSet& getLines() override { return lineSet; }
-    
+    renderer::Renderable* getRenderable() override {
+        return &lineSet;
+    }
+
     void testRunSimulation() {
         exampleSim.setParameters(cachedParams);
-        exampleSim.run(compute::ExampleSimulation::RunParameters{.numSteps = 100}, [this](const compute::ExampleSimulation::State& state) { this->onComputeStateUpdate(state); });
+        exampleSim.run(compute::ExampleSimulation::RunParameters{.numSteps = 100}, 
+                       [this](const compute::ExampleSimulation::State& state) {
+                            this->onComputeStateUpdate(state);
+                        });
     }
 
 private:
@@ -61,16 +66,17 @@ private:
     compute::ExampleSimulation::State cachedState;
     compute::ExampleSimulation::Parameters cachedParams;
 
-    renderer::VulkanContext& renderContext;
-
     renderer::LineSet lineSet;
 
     void onComputeStateUpdate(const compute::ExampleSimulation::State& state) {
         cachedState = state;
 
-        for (int i = 0; i < cachedState.velocity.size(); i++) {
+        for (size_t i = 0; i < cachedState.velocity.size(); i++) {
             lineSet.beginStrip();
-            for (size_t j = 0; j < 10000; j++) lineSet.addPoint(glm::ballRand(1.0f), glm::ballRand(0.5f) + glm::vec3{0.5f});
+
+            for (size_t j = 0; j < 10000; j++)
+                lineSet.addPoint(glm::ballRand(1.0f), glm::ballRand(0.5f) + glm::vec3{0.5f});
+                
             lineSet.endStrip();
         }
     }

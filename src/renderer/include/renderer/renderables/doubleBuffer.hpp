@@ -6,6 +6,9 @@
 
 namespace renderer {
 
+    /**
+     * Wrapper for any datatype, such that the data can be read and updated in parallel, while keeping these versions in sync.
+     */
     template<typename T>
     class DoubleBuffer {
     public:

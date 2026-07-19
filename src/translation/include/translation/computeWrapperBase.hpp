@@ -1,6 +1,6 @@
 #pragma once
 
-#include <renderer/objectTypes/line.hpp>
+#include <renderer/renderables/renderable.hpp>
 
 #include <vector>
 
@@ -18,9 +18,5 @@ public:
 
     virtual void renderGUI() = 0;
 
-    virtual renderer::LineSet& getLines() = 0;
-    // virtual std::vector<renderer::Arrows>& getArrows() const = 0;
-    // virtual std::vector<renderer::Spline>& getSplines() const = 0;
-    // virtual std::vector<renderer::Cube>& getCubes() const = 0;
-    // etc...
+    virtual renderer::Renderable* getRenderable() = 0;
 };

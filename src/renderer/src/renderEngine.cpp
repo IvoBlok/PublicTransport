@@ -113,9 +113,9 @@ namespace renderer {
             *pipelineManager
         );
 
-
+        // --------------------------------------------------------------------
         // Submit info
-        // ===============================================
+        // --------------------------------------------------------------------
         // Acquire wait semaphore (image acquired)
         VkSemaphoreSubmitInfo acquireWait{};
         acquireWait.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;

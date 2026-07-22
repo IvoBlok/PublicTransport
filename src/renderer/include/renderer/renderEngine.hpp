@@ -75,7 +75,6 @@ namespace renderer {
         void handleInput();
         void updateUniformBuffer(uint32_t frameIndex);
         void recreateSwapChain();
-        void cleanupSwapChain();
 
         // Static callback for window resize
         static void framebufferResizeCallback(GLFWwindow* window, int width, int height);

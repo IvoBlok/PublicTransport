@@ -17,6 +17,7 @@ meson compile -C build
 - [x] Replace Fence usage with timeline semaphore
 - [x] Fix frames-in-flight, such that proper concurrency between GPU and CPU is used
 - [x] Rethink how to split renderer code, instead of the current engine vs internals
+- [ ] Add back tracy GPU support
 - [ ] Add ImGui + ImPlot back in
 - [ ] Extend test example with GUI, maybe progress bar, and gradual results
 - [ ] Move UBO resources to frameResources struct? (remove model matrix)

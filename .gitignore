@@ -6,4 +6,5 @@ __pycache__/
 *.log
 build/
 
-subprojects/tracy/
+subprojects/
+!subprojects/tracy.wrap
